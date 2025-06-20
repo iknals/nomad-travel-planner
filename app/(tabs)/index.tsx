@@ -1,75 +1,53 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import SegmentCard from '@/components/SegmentCard';
+import { supabase } from '@/lib/supabase';
+import dayjs from 'dayjs';
+import React, { useEffect, useRef, useState } from 'react';
+import { FlatList, SafeAreaView } from 'react-native';
 
-import { HelloWave } from '@/components/HelloWave';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
+type Segment = {
+  id: string;
+  location: string;
+  start_date: string | null;
+  end_date: string | null;
+  flexible: boolean;
+};
 
-export default function HomeScreen() {
+export default function TimelineScreen() {
+  const [segments, setSegments] = useState<Segment[]>([]);
+  const flatListRef = useRef<FlatList>(null);
+
+  useEffect(() => {
+    const fetch = async () => {
+      const { data } = await supabase.from('segments').select('*').order('start_date', { ascending: true });
+      if (data) setSegments(data);
+    };
+
+    fetch();
+  }, []);
+
+  useEffect(() => {
+    const today = dayjs();
+    const index = segments.findIndex((s) => {
+      if (!s.start_date || !s.end_date) return false;
+      return dayjs(s.start_date).isBefore(today) && dayjs(s.end_date).isAfter(today);
+    });
+
+    if (index >= 0) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToIndex({ index, animated: true });
+      }, 500);
+    }
+  }, [segments]);
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+    <SafeAreaView style={{ flex: 1 }}>
+      <FlatList
+        ref={flatListRef}
+        data={segments}
+        renderItem={({ item }) => <SegmentCard segment={item} />}
+        keyExtractor={(item) => item.id}
+        getItemLayout={(_, index) => ({ length: 100, offset: 100 * index, index })}
+      />
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
-  },
-});
